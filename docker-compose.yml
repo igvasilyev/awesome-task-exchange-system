@@ -1,0 +1,43 @@
+version: '2.4'
+services:
+  auth-db:
+    image: postgres:16
+    environment:
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./persistent/auth/postgres/:/var/lib/postgresql/data/pgdata:cached
+    command: postgres -c listen_addresses='*'
+    ports:
+      - 15432:5432
+
+  auth-app: &app
+    build:
+      context: ./auth
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./auth:/rails:cached
+      - /app/persistent/auth
+    command: tail -f /dev/null
+    depends_on:
+      - auth-db
+    tmpfs:
+      - /tmp
+
+  auth-backend: &backend
+    <<: *app
+    stdin_open: true
+    tty: true
+
+  auth-runner:
+    <<: *backend
+    command: /bin/sh
+    ports:
+      - '3000:3000'
+      - '3002:3002'
+
+  auth-rails:
+    <<: *backend
+    command: bundle exec rails server -b 0.0.0.0
+    ports:
+      - '3000:3000'
